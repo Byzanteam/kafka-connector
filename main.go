@@ -19,6 +19,8 @@ import (
 
 var saramaKafkaProtocolVersion = sarama.V0_10_2_0
 
+var _kafkaClient sarama.Client
+
 type connectorConfig struct {
 	*types.ControllerConfig
 	Topics []string
@@ -39,6 +41,11 @@ func main() {
 	controller.BeginMapBuilder()
 
 	brokers := []string{config.Broker}
+
+	s := &subscriber{config, credentials, 1 * time.Second, brokers}
+	controller.Subscribe(s)
+	go s.syncFunctions() // sync remote functions to local.
+
 	waitForBrokers(brokers, config, controller)
 
 	makeConsumer(brokers, config, controller)
@@ -46,21 +53,16 @@ func main() {
 
 func waitForBrokers(brokers []string, config connectorConfig, controller *types.Controller) {
 
-	var client sarama.Client
 	var err error
 
 	for {
 		if len(controller.Topics()) > 0 {
-			client, err = sarama.NewClient(brokers, nil)
-			if client != nil && err == nil {
+			_kafkaClient, err = sarama.NewClient(brokers, nil)
+			if _kafkaClient != nil && err == nil {
 				break
-			}
-			if client != nil {
-				client.Close()
 			}
 			fmt.Println("Wait for brokers ("+config.Broker+") to come up.. ", brokers)
 		}
-
 		time.Sleep(1 * time.Second)
 	}
 }
