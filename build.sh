@@ -18,7 +18,7 @@ if [ "$1" ]; then
 fi
 
 if [ -z "$NAMESPACE" ]; then
-    NAMESPACE="openfaas"
+    NAMESPACE="REGISTRY"
 fi
 
 docker build -t $NAMESPACE/kafka-connector:$TAG . -f $dockerfile --no-cache

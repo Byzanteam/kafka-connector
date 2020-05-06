@@ -22,7 +22,7 @@ services:
       - streaming
 
   connector:
-    image: openfaas/kafka-connector:0.3.3
+    image: REGISTRY/kafka-connector:0.3.3
     hostname: kafka-connector
     environment:
       gateway_url: http://gateway:8080
