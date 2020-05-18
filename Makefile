@@ -1,5 +1,5 @@
-TAG?=latest-dev
-NAMESPACE?=openfaas
+TAG?=make
+NAMESPACE?=fiveddd
 .PHONY: build
 
 build:

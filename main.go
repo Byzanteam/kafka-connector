@@ -9,7 +9,7 @@ import (
 	"log"
 	"math"
 	"os"
-	"strings"
+	"regexp"
 	"time"
 
 	"github.com/Shopify/sarama"
@@ -17,17 +17,14 @@ import (
 	"github.com/openfaas-incubator/connector-sdk/types"
 )
 
-var saramaKafkaProtocolVersion = sarama.V0_10_2_0
+var (
+	saramaKafkaProtocolVersion = sarama.V0_10_2_0
+)
 
 type connectorConfig struct {
 	*types.ControllerConfig
-	Topics []string
 	Broker string
 }
-
-const (
-	DEFAULT_KAFKA_PORT = "9092"
-)
 
 func main() {
 
@@ -39,33 +36,11 @@ func main() {
 	controller.BeginMapBuilder()
 
 	brokers := []string{config.Broker}
-	waitForBrokers(brokers, config, controller)
 
-	makeConsumer(brokers, config, controller)
+	makeConsumer(brokers, controller)
 }
 
-func waitForBrokers(brokers []string, config connectorConfig, controller *types.Controller) {
-
-	var client sarama.Client
-	var err error
-
-	for {
-		if len(controller.Topics()) > 0 {
-			client, err = sarama.NewClient(brokers, nil)
-			if client != nil && err == nil {
-				break
-			}
-			if client != nil {
-				client.Close()
-			}
-			fmt.Println("Wait for brokers ("+config.Broker+") to come up.. ", brokers)
-		}
-
-		time.Sleep(1 * time.Second)
-	}
-}
-
-func makeConsumer(brokers []string, config connectorConfig, controller *types.Controller) {
+func makeConsumer(brokers []string, controller *types.Controller) {
 	//setup consumer
 	cConfig := cluster.NewConfig()
 	cConfig.Version = saramaKafkaProtocolVersion
@@ -75,12 +50,11 @@ func makeConsumer(brokers []string, config connectorConfig, controller *types.Co
 	cConfig.Group.Session.Timeout = 6 * time.Second
 	cConfig.Group.Heartbeat.Interval = 2 * time.Second
 
+	cConfig.Group.Topics.Whitelist = regexp.MustCompile(`faas-topics.*`)
+
 	group := "faas-kafka-queue-workers"
 
-	topics := config.Topics
-	log.Printf("Binding to topics: %v", config.Topics)
-
-	consumer, err := cluster.NewConsumer(brokers, group, topics, cConfig)
+	consumer, err := cluster.NewConsumer(brokers, group, nil, cConfig)
 	if err != nil {
 		log.Fatalln("Fail to create Kafka consumer: ", err)
 	}
@@ -121,18 +95,6 @@ func buildConnectorConfig() connectorConfig {
 	broker := "kafka:9092"
 	if val, exists := os.LookupEnv("broker_host"); exists {
 		broker = val
-	}
-
-	topics := []string{}
-	if val, exists := os.LookupEnv("topics"); exists {
-		for _, topic := range strings.Split(val, ",") {
-			if len(topic) > 0 {
-				topics = append(topics, topic)
-			}
-		}
-	}
-	if len(topics) == 0 {
-		log.Fatal(`Provide a list of topics i.e. topics="payment_published,slack_joined"`)
 	}
 
 	gatewayURL := "http://gateway:8080"
@@ -189,7 +151,6 @@ func buildConnectorConfig() connectorConfig {
 			TopicAnnotationDelimiter: delimiter,
 			AsyncFunctionInvocation:  asynchronousInvocation,
 		},
-		Topics: topics,
 		Broker: broker,
 	}
 }
