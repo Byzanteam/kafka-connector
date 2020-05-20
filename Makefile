@@ -1,5 +1,5 @@
-TAG?=make
-NAMESPACE?=fiveddd
+TAG?=latest
+NAMESPACE?=byzanteam
 .PHONY: build
 
 build:

@@ -7,7 +7,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"math"
 	"os"
 	"regexp"
 	"time"
@@ -15,68 +14,64 @@ import (
 	"github.com/Shopify/sarama"
 	cluster "github.com/bsm/sarama-cluster"
 	"github.com/openfaas-incubator/connector-sdk/types"
+	"github.com/pkg/errors"
 )
 
 var (
 	saramaKafkaProtocolVersion = sarama.V0_10_2_0
+	controller                 *types.Controller
 )
 
 type connectorConfig struct {
 	*types.ControllerConfig
-	Broker string
+	Topics  *regexp.Regexp
+	Brokers string
 }
 
 func main() {
 
 	credentials := types.GetCredentials()
-	config := buildConnectorConfig()
+	configs := buildConnectorConfig()
 
-	controller := types.NewController(credentials, config.ControllerConfig)
+	controller = types.NewController(credentials, configs.ControllerConfig)
 
 	controller.BeginMapBuilder()
 
-	brokers := []string{config.Broker}
+	brokers := []string{configs.Brokers}
 
-	makeConsumer(brokers, controller)
+	makeConsumer(brokers, configs.Topics)
 }
 
-func makeConsumer(brokers []string, controller *types.Controller) {
+func makeConsumer(brokers []string, topics *regexp.Regexp) {
 	//setup consumer
-	cConfig := cluster.NewConfig()
-	cConfig.Version = saramaKafkaProtocolVersion
-	cConfig.Consumer.Return.Errors = true
-	cConfig.Consumer.Offsets.Initial = sarama.OffsetNewest //OffsetOldest
-	cConfig.Group.Return.Notifications = true
-	cConfig.Group.Session.Timeout = 6 * time.Second
-	cConfig.Group.Heartbeat.Interval = 2 * time.Second
-
-	cConfig.Group.Topics.Whitelist = regexp.MustCompile(`faas-topics.*`)
+	config := cluster.NewConfig()
+	config.Version = saramaKafkaProtocolVersion
+	config.Consumer.Return.Errors = true
+	config.Consumer.Offsets.Initial = sarama.OffsetOldest //OffsetOldest
+	config.Group.Return.Notifications = true
+	config.Group.Session.Timeout = 6 * time.Second
+	config.Group.Heartbeat.Interval = 2 * time.Second
+	config.Group.Topics.Whitelist = topics
 
 	group := "faas-kafka-queue-workers"
 
-	consumer, err := cluster.NewConsumer(brokers, group, nil, cConfig)
+	consumer, err := cluster.NewConsumer(brokers, group, nil, config)
 	if err != nil {
 		log.Fatalln("Fail to create Kafka consumer: ", err)
 	}
 
 	defer consumer.Close()
 
-	num := 0
-
 	for {
 		select {
 		case msg, ok := <-consumer.Messages():
 			if ok {
-				num = (num + 1) % math.MaxInt32
-				fmt.Printf("[#%d] Received on [%v,%v]: '%s'\n",
-					num,
-					msg.Topic,
-					msg.Partition,
-					string(msg.Value))
-
-				controller.Invoke(msg.Topic, &msg.Value)
-
-				consumer.MarkOffset(msg, "") // mark message as processed
+				fmt.Printf("Received on [%v,%v]: '%s'\n", msg.Topic, msg.Partition, string(msg.Value))
+				if err = invoke(msg); err != nil {
+					consumer.ResetOffset(msg, "to-earliest")
+				} else {
+					consumer.MarkOffset(msg, "") // mark message as processed
+				}
 			}
 		case err = <-consumer.Errors():
 
@@ -95,6 +90,11 @@ func buildConnectorConfig() connectorConfig {
 	broker := "kafka:9092"
 	if val, exists := os.LookupEnv("broker_host"); exists {
 		broker = val
+	}
+
+	topics := regexp.MustCompile(`faas-topics.*`)
+	if val, exists := os.LookupEnv("topics"); exists {
+		topics = regexp.MustCompile(val)
 	}
 
 	gatewayURL := "http://gateway:8080"
@@ -151,6 +151,16 @@ func buildConnectorConfig() connectorConfig {
 			TopicAnnotationDelimiter: delimiter,
 			AsyncFunctionInvocation:  asynchronousInvocation,
 		},
-		Broker: broker,
+		Brokers: broker,
+		Topics:  topics,
 	}
+}
+
+func invoke(message *sarama.ConsumerMessage) error {
+	matchedFunctions := controller.TopicMap.Match(message.Topic)
+	if len(matchedFunctions) < 1 {
+		return errors.Errorf("topic %s has no matched functions", message.Topic)
+	}
+	controller.Invoke(message.Topic, &message.Value)
+	return nil
 }
