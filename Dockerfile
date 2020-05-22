@@ -5,7 +5,6 @@ WORKDIR /go/src/github.com/openfaas-incubator/kafka-connector
 
 COPY vendor     vendor
 COPY main.go    .
-COPY subscriber.go    .
 
 # Run a gofmt and exclude all vendored code.
 RUN test -z "$(gofmt -l $(find . -type f -name '*.go' -not -path "./vendor/*"))"
