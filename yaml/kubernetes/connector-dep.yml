@@ -26,6 +26,8 @@ spec:
         env:
           - name: gateway_url
             value: "http://gateway.openfaas:8080"
+          - name: topics
+            value: "faas-topics.*"
           - name: print_response
             value: "true"
           - name: print_response_body
