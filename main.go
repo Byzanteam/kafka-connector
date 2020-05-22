@@ -22,6 +22,7 @@ var (
 	controller                 *types.Controller
 )
 
+
 type connectorConfig struct {
 	*types.ControllerConfig
 	Topics  *regexp.Regexp
@@ -38,7 +39,6 @@ func main() {
 	controller.BeginMapBuilder()
 
 	brokers := []string{configs.Brokers}
-
 	makeConsumer(brokers, configs.Topics)
 }
 
