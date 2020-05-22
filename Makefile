@@ -1,4 +1,4 @@
-TAG?=latest
+TAG?=latest-dev
 NAMESPACE?=byzanteam
 .PHONY: build
 

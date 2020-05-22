@@ -1,3 +1,6 @@
+.ash_history
+connector
+kafka-connector
 # Binaries for programs and plugins
 *.exe
 *.exe~
