@@ -22,12 +22,12 @@ spec:
     spec:
       containers:
       - name: kafka
-        image: openfaas/kafka-connector:0.3.4
+        image: fiveddd/kafka-connector:latest-dev
         env:
           - name: gateway_url
             value: "http://gateway.openfaas:8080"
           - name: topics
-            value: "faas-request,"
+            value: "faas-topics.*"
           - name: print_response
             value: "true"
           - name: print_response_body

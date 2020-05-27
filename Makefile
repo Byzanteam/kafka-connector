@@ -1,5 +1,5 @@
 TAG?=latest-dev
-NAMESPACE?=openfaas
+NAMESPACE?=byzanteam
 .PHONY: build
 
 build:
