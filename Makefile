@@ -1,18 +1,18 @@
 TAG?=latest-dev
-NAMESPACE?=byzanteam
+NAMESPACE?=registry.cn-hangzhou.aliyuncs.com/byzanteam
 .PHONY: build
 
 build:
-	./build.sh $(TAG)
+	./build.sh $(TAG) $(NAMESPACE)
 
 ci-armhf-build:
-	./build.sh $(TAG)
+	./build.sh $(TAG) $(NAMESPACE)
 
 ci-armhf-push:
-	./build.sh $(TAG)
+	./build.sh $(TAG) $(NAMESPACE)
 
 push:
-	./push.sh $(TAG)
+	./push.sh $(TAG) $(NAMESPACE)
 
 
 

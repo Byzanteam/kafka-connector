@@ -19,6 +19,9 @@ fi
 
 if [ -z "$NAMESPACE" ]; then
     NAMESPACE="REGISTRY"
+    if [ "$2" ]; then
+        NAMESPACE=$2
+    fi
 fi
 
 docker build -t $NAMESPACE/kafka-connector:$TAG . -f $dockerfile --no-cache
